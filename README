@@ -1,0 +1,9 @@
+This repository is a collection of various scripts, extensions, etc. that
+convert user- and group-data into the RestAuth import data format:
+	https://server.restauth.net/migrate/import-format.html
+
+The data produced by these scripts can usually be imported by restauth-import:
+	https://server.restauth.net/migrate/import-format.html
+
+More migration solutions may be available here:
+	https://server.restauth.net/migrate/overview.html
