@@ -2,6 +2,47 @@
 
 global $IP;
 require_once( "$IP/includes/specials/SpecialListusers.php" );
+class RestAuthExportForm extends HTMLForm {
+	function __construct() {
+		global $wgRestAuthService;
+		$descriptor = array(
+			'export-service' => array(
+				'type' => 'check',
+				'label-message' => 'service-label',
+				'help-message' => 'service-help',
+				'default' => !is_null($wgRestAuthService),
+				'disabled' => is_null($wgRestAuthService),
+			),
+			'export-users' => array(
+				'type' => 'check',
+				'label-message' => 'users-label',
+				'help-message' => 'users-help',
+				'default' => true,
+			),
+			'export-properties' => array(
+				'type' => 'check',
+				'label-message' => 'properties-label',
+				'help-message' => 'properties-help',
+				'default' => true,
+			),
+			'export-groups' => array(
+				'type' => 'check',
+				'label-message' => 'groups-label',
+				'help-message' => 'groups-help',
+				'default' => true,
+			),
+			'exclude-groups' => array(
+				'type' => 'text',
+				'label-message' => 'exclude-groups-label',
+				'help-message' => 'exclude-groups-help',
+				'default' => 'bot',
+			),
+		);
+		parent::__construct( $descriptor );
+		global $wgTitle;
+		$this->setTitle( $wgTitle );
+	}
+}
 
 class SpecialRestAuthExport extends SpecialPage {
 	function __construct() {
@@ -17,41 +58,22 @@ class SpecialRestAuthExport extends SpecialPage {
 		}
  
 		$this->setHeaders();
- 
-		# Get request data from, e.g.
-		 $param = $wgRequest->getText('param');
 
-		# Do stuff
-		# ...
-		#$output="Hello world!";
-		#$wgOut->addWikiText( $output );
-		$this->outputRawData();
+		$form = new RestAuthExportForm();
+		$form->loadData();
+		if ($wgRequest->wasPosted()) {
+			$this->outputRawData($form->mFieldData);
+		} else {
+			$form->displayForm();
+		}
 	}
-
-	private function outputRawData() {
-		global $wgRequest, $wgOut, $wgUser;
-		global $wgRestAuthIgnoredOptions, $wgRestAuthGlobalOptions;
-
-		if ( !$this->userCanExecute($wgUser) ) {
-			$this->displayRestrictionError();
-			return;
-		}
-#		if ( !$wgRequest->wasPosted() ) {
-#			$wgOut->showErrorPage( 'mustpost-header', 'mustpost-text' );
-#			return;
-#		}
+	private function getServiceData($formdata) {
+		global $wgRestAuthService, $wgRestAuthServicePassword;
+		return array($wgRestAuthService => array('password' => $wgRestAuthServicePassword));
+	}
+	private function getUserData($formdata, $groups) {
+		$excluded_groups = explode(',', $formdata['exclude-groups']);
 		$users = array();
-		$groups = array();
-		$result = array();
-
-		# loop through all groups to get a list of all groups to add empty groups:
-		$all_groups = User::getAllGroups();
-		foreach ($all_groups as $group) {
-			if (!array_key_exists($group, $groups)) {
-				$groups[$group] = array('users' => array());
-			}
-		}
-		
 		# get list of users:
 		$usersPager = new UsersPager();
 		$usersPager->doQuery();
@@ -62,10 +84,13 @@ class SpecialRestAuthExport extends SpecialPage {
 			$row = $usersResult->fetchObject();
 			$user = User::newFromId( $row->user_id );
 			$user->load();
-
+			
+			if (count(array_intersect($user->getEffectiveGroups(), $excluded_groups))>0 ) {
+				continue;
+			}
 
 			# add user to users result:
-			$users[$user->getName()] = array('properties'=>array());
+			$users[$user->getName()] = array();
 
 			# add the password hash:
 			if (!is_null($user->mPassword) && strpos($user->mPassword, ':') !== false) {
@@ -86,56 +111,102 @@ class SpecialRestAuthExport extends SpecialPage {
 				$users[$user->getName()]['password'] = $password;
 			}
 
-			// set settings (email and real name):
-			$prop = fnRestAuthGetOptionName('email');
-			if (!in_array( $prop, $wgRestAuthIgnoredOptions ) && $user->getEmail()) {
-				$users[$user->getName()]['properties'][$prop] = $user->getEmail();
-				
-				// email confirmed?
-				if (array_key_exists('email', $wgRestAuthGlobalOptions)) {
-					$confirmed_prop = 'email confirmed';
-				} else {
-					$confirmed_prop = 'mediawiki email confirmed';
-				}
-				if ($user->isEmailConfirmed()){
-					$users[$user->getName()]['properties'][$confirmed_prop] = '1';
-				} else {
-					$users[$user->getName()]['properties'][$confirmed_prop] = '0';
-				}
-
+			if ($formdata['export-properties']) {
+				$users[$user->getName()]['properties'] = $this->getUserProperties($formdata, $user);
 			}
 
-			// set options (everything else)
-			foreach ($user->getOptions() as $key => $value) {
-				if ( in_array( $key, $wgRestAuthIgnoredOptions ) ) {
-					continue;
+			if ($formdata['export-groups']) {
+				# get groups (see UsersPager::getGroups()):
+				$usergroups = array_diff( $user->getEffectiveGroups(), $user->getImplicitGroups() );
+				foreach ($usergroups as $usergroup) {
+					if (!in_array($usergroup, $excluded_groups)) {
+						$groups[$usergroup]['users'][] = $user->getName();
+					}
 				}
-
-				$prop = fnRestAuthGetOptionName($key);
-				$users[$user->getName()]['properties'][$prop] = $value;
-			}
-
-			$prop = fnRestAuthGetOptionName( 'real name' );
-			if (!in_array( $prop, $wgRestAuthIgnoredOptions ) && $user->getRealName()) {
-				$users[$user->getName()]['properties'][$prop] = $user->getRealName();
-			}
-
-
-			# get groups (see UsersPager::getGroups()):
-			$usergroups = array_diff( $user->getEffectiveGroups(), $user->getImplicitGroups() );
-			foreach ($usergroups as $usergroup) {
-				$groups[$usergroup]['users'][] = $user->getName();
 			}
 		}
 
-		if (count($users)>0) {
-			$result['users'] = $users;
+		return $users;
+	}
+	
+	private function getUserProperties($formdata, $user) {
+		global $wgRestAuthIgnoredOptions, $wgRestAuthGlobalOptions;
+		$properties = array();
+
+		// set settings (email and real name):
+		$prop = fnRestAuthGetOptionName('email');
+		if (!in_array( $prop, $wgRestAuthIgnoredOptions ) && $user->getEmail()) {
+			$properties[$prop] = $user->getEmail();
+			
+			// email confirmed?
+			if (array_key_exists('email', $wgRestAuthGlobalOptions)) {
+				$confirmed_prop = 'email confirmed';
+			} else {
+				$confirmed_prop = 'mediawiki email confirmed';
+			}
+			if ($user->isEmailConfirmed()){
+				$properties[$confirmed_prop] = '1';
+			} else {
+				$properties[$confirmed_prop] = '0';
+			}
 		}
-		if (count($groups)>0) {
-			$result['groups'] = $groups;
+
+		$prop = fnRestAuthGetOptionName( 'real name' );
+		if (!in_array( $prop, $wgRestAuthIgnoredOptions ) && $user->getRealName()) {
+			$properties[$prop] = $user->getRealName();
 		}
-		global $wgRestAuthService, $wgRestAuthServicePassword;
-		$result['services'] = array($wgRestAuthService => array('password' => $wgRestAuthServicePassword));
+
+		// set options (everything else)
+		foreach ($user->getOptions() as $key => $value) {
+			if ( in_array( $key, $wgRestAuthIgnoredOptions ) ) {
+				continue;
+			}
+
+			$prop = fnRestAuthGetOptionName($key);
+			$properties[$prop] = $value;
+		}
+
+		return $properties;
+	}
+
+	private function getGroupData($formdata) {
+		$excluded = explode(',', $formdata['exclude-groups']);
+		$groups = array();
+		$all_groups = User::getAllGroups();
+		foreach ($all_groups as $group) {
+			if (!in_array($group, $excluded)) {
+				$groups[$group] = array();
+			}
+		}
+		return $groups;
+	}
+
+	private function outputRawData($formdata) {
+		global $wgRequest, $wgOut, $wgUser;
+
+		if ( !$this->userCanExecute($wgUser) ) {
+			$this->displayRestrictionError();
+			return;
+		}
+		if ( !$wgRequest->wasPosted() ) {
+			$wgOut->showErrorPage( 'mustpost-header', 'mustpost-text' );
+			return;
+		}
+
+		$result = array();
+
+		$users = array();
+		if ($formdata['export-groups']) {
+			$result['groups'] = $this->getGroupData($formdata);
+		}
+
+		if ($formdata['export-service']) {
+			$result['services'] = $this->getServiceData($formdata);
+		}
+
+		if ($formdata['export-users']) {
+			$result['users'] = $this->getUserData($formdata, &$result['groups']);
+		}
 
 		die(json_encode($result));
 	}
