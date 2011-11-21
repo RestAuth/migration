@@ -2,6 +2,10 @@
 
 global $IP;
 require_once( "$IP/includes/specials/SpecialListusers.php" );
+
+/**
+ * RestAuthExportForm displays the main form displayed on the special page
+ */
 class RestAuthExportForm extends HTMLForm {
 	function __construct() {
 		global $wgRestAuthService;
@@ -67,10 +71,20 @@ class SpecialRestAuthExport extends SpecialPage {
 			$form->displayForm();
 		}
 	}
+
+	/**
+	 * Get the service data. See also:
+	 * 	https://server.restauth.net/migrate/import-format.html#services
+	 */
 	private function getServiceData($formdata) {
 		global $wgRestAuthService, $wgRestAuthServicePassword;
-		return array($wgRestAuthService => array('password' => $wgRestAuthServicePassword));
+		$return = array($wgRestAuthService => array());
+		if (!is_null($wgRestAuthServicePassword)) {
+			$return[$wgRestAuthService]['password'] = $wgRestAuthServicePassword;
+		}
+		return $return;
 	}
+
 	private function getUserData($formdata, $groups) {
 		$excluded_groups = explode(',', $formdata['exclude-groups']);
 		$users = array();
