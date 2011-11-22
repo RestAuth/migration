@@ -16,30 +16,39 @@ class RestAuthExportForm extends HTMLForm {
 				'help-message' => 'service-help',
 				'default' => !is_null($wgRestAuthService),
 				'disabled' => is_null($wgRestAuthService),
+				'section' => 'service-section-header',
 			),
+
+			// users
 			'export-users' => array(
 				'type' => 'check',
 				'label-message' => 'users-label',
 				'help-message' => 'users-help',
 				'default' => true,
+				'section' => 'users-section-header',
 			),
 			'export-properties' => array(
 				'type' => 'check',
 				'label-message' => 'properties-label',
 				'help-message' => 'properties-help',
 				'default' => true,
+				'section' => 'users-section-header',
 			),
+
+			// groups
 			'export-groups' => array(
 				'type' => 'check',
 				'label-message' => 'groups-label',
 				'help-message' => 'groups-help',
 				'default' => true,
+				'section' => 'groups-section-header',
 			),
 			'exclude-groups' => array(
 				'type' => 'text',
 				'label-message' => 'exclude-groups-label',
 				'help-message' => 'exclude-groups-help',
 				'default' => 'bot',
+				'section' => 'groups-section-header',
 			),
 		);
 		parent::__construct( $descriptor );
