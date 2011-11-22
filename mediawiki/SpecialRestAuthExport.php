@@ -84,7 +84,7 @@ class SpecialRestAuthExport extends SpecialPage {
 		if ($wgRequest->wasPosted()) {
 			$this->outputRawData($form->mFieldData);
 		} else {
-			$form->displayForm();
+			$form->show();
 		}
 	}
 
