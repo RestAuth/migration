@@ -50,6 +50,13 @@ class RestAuthExportForm extends HTMLForm {
 				'default' => 'bot',
 				'section' => 'groups-section-header',
 			),
+			'groups-service' => array(
+				'type' => 'text',
+				'label-message' => 'groups-service-label',
+				'help-message' => 'groups-service-help',
+				'default' => is_null($wgRestAuthService) ? '' : $wgRestAuthService,
+				'section' => 'groups-section-header',
+			),
 		);
 		parent::__construct( $descriptor );
 		global $wgTitle;
@@ -199,6 +206,9 @@ class SpecialRestAuthExport extends SpecialPage {
 		foreach ($all_groups as $group) {
 			if (!in_array($group, $excluded)) {
 				$groups[$group] = array();
+				if ($formdata['groups-service']) {
+					$groups[$group]['service'] = $formdata['groups-service'];
+				}
 			}
 		}
 		return $groups;
