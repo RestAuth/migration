@@ -101,7 +101,7 @@ class SpecialRestAuthExport extends SpecialPage {
 		return $return;
 	}
 
-	private function getUserData($formdata, $groups) {
+	private function getUserData($formdata, $groups=array()) {
 		$excluded_groups = explode(',', $formdata['exclude-groups']);
 		$users = array();
 		# get list of users:
@@ -238,7 +238,11 @@ class SpecialRestAuthExport extends SpecialPage {
 		}
 
 		if ($formdata['export-users']) {
-			$result['users'] = $this->getUserData($formdata, &$result['groups']);
+			if ($formdata['export-groups']) {
+				$result['users'] = $this->getUserData($formdata, &$result['groups']);
+			} else {
+				$result['users'] = $this->getUserData($formdata);
+			}
 		}
 
 		die(json_encode($result));
