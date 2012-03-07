@@ -107,6 +107,7 @@ class SpecialRestAuthExport extends SpecialPage {
 		# get list of users:
 		$usersPager = new UsersPager();
 		$usersPager->mDefaultLimit = 1000000;
+		$usersPager->mLimit = 1000000;
 		$usersPager->doQuery();
 		$usersResult = $usersPager->getResult();
 		
