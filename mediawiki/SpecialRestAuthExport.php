@@ -141,7 +141,23 @@ class SpecialRestAuthExport extends SpecialPage {
 					);
 				}
 				$users[$user->getName()]['password'] = $password;
-			}
+			} elseif (!is_null($user->mPassword) && preg_match("/^[0-9a-f]{32}$/", $user->mPassword)) {
+				# oldCrypt password detected
+				global $wgPasswordSalt;
+				if ($wgPasswordSalt) {
+					$password = array(
+						'algorithm' => 'mediawiki_old',
+						'userid'    => $user->mId,
+						'hash'      => $user->mPassword,
+					);
+				} else {
+					$password = array(
+						'algorithm' => 'md5',
+						'hash'      => $user->mPassword,
+					);
+				}
+				$users[$user->getName()]['password'] = $password;
+                        }
 
 			if ($formdata['export-properties']) {
 				$users[$user->getName()]['properties'] = $this->getUserProperties($formdata, $user);
