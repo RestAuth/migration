@@ -146,8 +146,8 @@ class SpecialRestAuthExport extends SpecialPage {
 				global $wgPasswordSalt;
 				if ($wgPasswordSalt) {
 					$password = array(
-						'algorithm' => 'mediawiki_old',
-						'userid'    => $user->mId,
+						'algorithm' => 'mediawiki',
+						'salt'      => $user->mId,
 						'hash'      => $user->mPassword,
 					);
 				} else {
